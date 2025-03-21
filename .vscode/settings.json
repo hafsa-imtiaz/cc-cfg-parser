@@ -3,6 +3,8 @@
         "iostream": "cpp",
         "unordered_map": "cpp",
         "utility": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "xlocmon": "cpp",
+        "xtree": "cpp"
     }
 }

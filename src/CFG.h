@@ -10,12 +10,17 @@
 #include <numeric>
 using namespace std;
 
+// subha change use range-based indexing cause set role karta
+/*
+non-terminal (key) ----> array (vector) of string ki arrays
+*/
 class CFG {
 private:
     map<string, vector<vector<string>>> productions;  
     map<string, set<string>> firstSets; 
     map<string, set<string>> followSets; 
-    map<pair<string, string>, vector<string>> parsingTable; 
+    map<pair<string, string>, vector<string>> parsing_table; 
+
 public:
     CFG(const string& filename) {
         read_from_file(filename);
@@ -33,10 +38,11 @@ public:
             vector<vector<string>> rules;
             vector<string> currentRule;
             while (read >> production) {
-                if (production == "|") {
+                if (production == "|") {    // '|' will mean that a new production rule has started --> save the old one
                     rules.push_back(currentRule);
                     currentRule.clear();
-                } else {
+                } 
+                else {
                     currentRule.push_back(production);
                 }
             }
@@ -57,7 +63,7 @@ public:
         }
         for (const auto& rule : productions) {
             cout << rule.first << " -> ";
-            for (size_t i = 0; i < rule.second.size(); i++) {
+            for (int i = 0; i < rule.second.size(); i++) {
                 for (const auto& symbol : rule.second[i]) {
                     cout << symbol << " ";
                 }
@@ -73,85 +79,88 @@ public:
         if (productions.empty()) {
             return;
         }
-        map<string, vector<vector<string>>> newCFG;
+        map<string, vector<vector<string>>> naya_cfg;
 
         for (auto& rule : productions) {
-            string nonTerminal = rule.first;
-            vector<vector<string>> alpha, beta;
+            string non_terminal = rule.first; // rule.first main non-terminal, rule.second main uski productions
+            vector<vector<string>> recusrive_prod, normal;
 
             for (auto& prod : rule.second) {
-                if (!prod.empty() && prod[0] == nonTerminal) {
-                    alpha.push_back(vector<string>(prod.begin() + 1, prod.end()));
+                if (!prod.empty() && prod[0] == non_terminal) { // if left recursion ---> save to recusrive_prod
+                    recusrive_prod.push_back(vector<string>(prod.begin() + 1, prod.end()));
                 } else {
-                    beta.push_back(prod);
+                    normal.push_back(prod);
                 }
             }
 
-            if (alpha.empty()) {
-                newCFG[nonTerminal] = rule.second;
-            } else {
-                string newNonTerminal = nonTerminal + "'";
+            if (recusrive_prod.empty()) {
+                naya_cfg[non_terminal] = rule.second;
+            } 
+            else {
+                string new_nonTerminal = non_terminal + "'";
 
-                for (auto& prod : beta) {
-                    prod.push_back(newNonTerminal);
-                    newCFG[nonTerminal].push_back(prod);
+                for (auto& prod : normal) {
+                    prod.push_back(new_nonTerminal);
+                    naya_cfg[non_terminal].push_back(prod);
                 }
 
-                for (auto& prod : alpha) {
-                    prod.push_back(newNonTerminal);
-                    newCFG[newNonTerminal].push_back(prod);
+                for (auto& prod : recusrive_prod) {
+                    prod.push_back(new_nonTerminal);
+                    naya_cfg[new_nonTerminal].push_back(prod);
                 }
-                newCFG[newNonTerminal].push_back({"ε"});
+                naya_cfg[new_nonTerminal].push_back({"ε"});
             }
         }
 
-        productions = newCFG;
+        productions = naya_cfg;
     }
 
     void LeftFactoring() {
         if (productions.empty()) {
             return;
         }
-        map<string, vector<vector<string>>> updatedCFG;
-        int newNonTerminalCount = 1;
+        map<string, vector<vector<string>>> naya_cfg;
+        int new_nonterm_count = 1;
 
         for (const auto& rule : productions) {
-            string nonTerminal = rule.first;
+            string non_terminal = rule.first;
             const vector<vector<string>>& prods = rule.second;
-            map<string, vector<vector<string>>> groupedProds;
+            map<string, vector<vector<string>>> grouped_prods;
 
-            for (size_t i = 0; i < prods.size(); i++) {
+            for (int i = 0; i < prods.size(); i++) {
                 string prefix = prods[i][0];
-                for (size_t j = i + 1; j < prods.size(); j++) {
+
+                for (int j = i + 1; j < prods.size(); j++) {
                     if (prods[j][0] == prefix) {
-                        groupedProds[prefix].push_back(prods[j]);
+                        grouped_prods[prefix].push_back(prods[j]); // if productions have the same lhs, add to grouped
                     }
                 }
-                groupedProds[prefix].push_back(prods[i]);
+                grouped_prods[prefix].push_back(prods[i]);
             }
 
-            for (const auto& group : groupedProds) {
-                string prefix = group.first;
-                const vector<vector<string>>& groupProds = group.second;
+            for (const auto& group : grouped_prods) {
+                string prefix = group.first;    // the common lhs wala part
+                const vector<vector<string>>& groupProds = group.second;    // the productions that share it
 
                 if (groupProds.size() == 1) {
-                    updatedCFG[nonTerminal].push_back(groupProds[0]);
-                } else {
-                    string newNonTerminal = nonTerminal + "_F" + to_string(newNonTerminalCount++);
-                    updatedCFG[nonTerminal].push_back({prefix, newNonTerminal});
+                    naya_cfg[non_terminal].push_back(groupProds[0]);    
+                } 
+                else {
+                    string factored_nt = non_terminal + "_F" + to_string(new_nonterm_count++);
+                    naya_cfg[non_terminal].push_back({prefix, factored_nt});
 
                     for (const vector<string>& prod : groupProds) {
                         vector<string> suffix(prod.begin() + 1, prod.end());
                         if (suffix.empty()) {
                             suffix.push_back("ε");
                         }
-                        updatedCFG[newNonTerminal].push_back(suffix);
+                        naya_cfg[factored_nt].push_back(suffix);
                     }
                 }
             }
         }
 
-        productions = updatedCFG;
+        productions = naya_cfg;
     }
 
     void computeFirstSets() {
@@ -165,28 +174,31 @@ public:
             changed = false;
 
             for (const auto& rule : productions) {
-                string nonTerminal = rule.first;
+                string non_terminal = rule.first;
 
                 for (const auto& production : rule.second) {
-                    string firstSymbol = production[0];
+                    string pehla_symbol = production[0];
 
-                    if (isTerminal(firstSymbol)) {
-                        if (firstSets[nonTerminal].insert(firstSymbol).second)
+                    if (isTerminal(pehla_symbol)) { // agar terminal hai tou add to the first set
+                        if (firstSets[non_terminal].insert(pehla_symbol).second)
                             changed = true;
-                    } else {
-                        for (const string& symbol : production) {
+                    } 
+                    else {
+                        for (const string& symbol : production) {   
                             if (!isTerminal(symbol)) {
-                                size_t oldSize = firstSets[nonTerminal].size();
-                                firstSets[nonTerminal].insert(firstSets[symbol].begin(), firstSets[symbol].end());
+                                int curr_size = firstSets[non_terminal].size();
+                                firstSets[non_terminal].insert(firstSets[symbol].begin(), firstSets[symbol].end());
 
                                 if (firstSets[symbol].count("ε") == 0)
                                     break;
 
-                                if (firstSets[nonTerminal].size() > oldSize)
+                                if (firstSets[non_terminal].size() > curr_size)
                                     changed = true;
-                            } else {
-                                if (firstSets[nonTerminal].insert(symbol).second)
+                            } 
+                            else {
+                                if (firstSets[non_terminal].insert(symbol).second)
                                     changed = true;
+
                                 break;
                             }
                         }
@@ -210,7 +222,7 @@ public:
                 string nonTerminal = rule.first;
 
                 for (const auto& production : rule.second) {
-                    for (size_t i = 0; i < production.size(); i++) {
+                    for (int i = 0; i < production.size(); i++) {
                         string symbol = production[i];
 
                         if (!isTerminal(symbol)) {
@@ -221,7 +233,8 @@ public:
 
                                 if (isTerminal(nextSymbol)) {
                                     followToAdd.insert(nextSymbol);
-                                } else {
+                                } 
+                                else {
                                     followToAdd.insert(firstSets[nextSymbol].begin(), firstSets[nextSymbol].end());
                                     followToAdd.erase("ε");
 
@@ -229,14 +242,15 @@ public:
                                         followToAdd.insert(followSets[nonTerminal].begin(), followSets[nonTerminal].end());
                                     }
                                 }
-                            } else {
+                            } 
+                            else {
                                 followToAdd.insert(followSets[nonTerminal].begin(), followSets[nonTerminal].end());
                             }
 
-                            size_t oldSize = followSets[symbol].size();
+                            int curr_size = followSets[symbol].size();
                             followSets[symbol].insert(followToAdd.begin(), followToAdd.end());
 
-                            if (followSets[symbol].size() > oldSize)
+                            if (followSets[symbol].size() > curr_size)
                                 changed = true;
                         }
                     }
@@ -253,57 +267,33 @@ public:
             string nonTerminal = rule.first;
 
             for (const auto& production : rule.second) {
-                set<string> firstSetForProduction = computeFirstForProduction(production);
+                set<string> prod_fset = getProductionFirstSet(production); 
 
-                for (const string& terminal : firstSetForProduction) {
+                for (const string& terminal : prod_fset) {
                     if (terminal != "ε") {
-                        parsingTable[{nonTerminal, terminal}] = production;
+                        parsing_table[{nonTerminal, terminal}] = production;
                     }
                 }
 
-                if (firstSetForProduction.count("ε")) {
+                if (prod_fset.count("ε")) {
                     for (const string& terminal : followSets[nonTerminal]) {
-                        parsingTable[{nonTerminal, terminal}] = production;
+                        parsing_table[{nonTerminal, terminal}] = production;
                     }
                 }
             }
         }
     }
 
-    private:
-    bool isTerminal(const string& symbol) const {
-        return !(productions.count(symbol));
-    }
 
-    set<string> computeFirstForProduction(const vector<string>& production) {
-        set<string> result;
-
-        for (const string& symbol : production) {
-            if (isTerminal(symbol)) {
-                result.insert(symbol);
-                break;
-            } else {
-                result.insert(firstSets[symbol].begin(), firstSets[symbol].end());
-
-                if (firstSets[symbol].count("ε") == 0)
-                    break;
-            }
-        }
-
-        return result;
-    }
-
-    public:
-
-    void printFirstSets() const {
+    void printFirstSets() {
         if (productions.empty()) {
             cout << "\033[0;31mError: No CFG found!\033[0m" << endl;
             return;
         }
         for (const auto& entry : firstSets) {
             cout << "FIRST(" << entry.first << ") = { ";
-            size_t count = 0;
-            size_t setSize = entry.second.size();
+            int count = 0;
+            int setSize = entry.second.size();
             
             for (const auto& symbol : entry.second) {
                 cout << symbol;
@@ -315,15 +305,15 @@ public:
         }
     }
 
-    void printFollowSets() const {
+    void printFollowSets() {
         if (productions.empty()) {
             cout << "\033[0;31mError: No CFG found!\033[0m" << endl;
             return;
         }
         for (const auto& entry : followSets) {
             cout << "FOLLOW(" << entry.first << ") = { ";
-            size_t count = 0;
-            size_t setSize = entry.second.size();
+            int count = 0;
+            int setSize = entry.second.size();
             
             for (const auto& symbol : entry.second) {
                 cout << symbol;
@@ -339,7 +329,7 @@ public:
     //basic wala 
     void printParsingTable() const {
         cout << "\nLL(1) Parsing Table:\n";
-        for (const auto& entry : parsingTable) {
+        for (const auto& entry : parsing_table) {
             cout << "M[" << entry.first.first << ", " << entry.first.second << "] = ";
             for (const string& symbol : entry.second) {
                 cout << symbol << " ";
@@ -357,20 +347,20 @@ public:
 
         // using a set takay no repeatitions
         set<string> terminals, non_terminals;
-        for (const auto& entry : parsingTable) {
+        for (const auto& entry : parsing_table) {
             non_terminals.insert(entry.first.first);  // row headers pr Non-terminals
             terminals.insert(entry.first.second);    // column headers pr Terminals
         }
     
         // sabki width takay beautiful table
         unordered_map<string, size_t> col_width;
-        size_t min_width = 12; // min width for columns
+        int min_width = 12; // min width for columns
     
         for (const string& terminal : terminals) {
             col_width[terminal] = terminal.size() + 3; 
         }
     
-        for (const auto& entry : parsingTable) {
+        for (const auto& entry : parsing_table) {
             string production = entry.first.first + " -> ";
             for (const string& symbol : entry.second) {
                 production += symbol + " ";
@@ -379,7 +369,7 @@ public:
         }
 
         // total width takay dash dash print ho
-        size_t total_width = min_width + 4;
+        int total_width = min_width + 4;
         for (const string& terminal : terminals) {
             total_width += col_width[terminal] + 2;
         }
@@ -402,9 +392,9 @@ public:
 
                 auto key = make_pair(row_header, terminal);
 
-                if (parsingTable.find(key) != parsingTable.end()) {
+                if (parsing_table.find(key) != parsing_table.end()) {
                     string production = row_header + " -> ";
-                    for (const string& symbol : parsingTable.at(key)) {
+                    for (const string& symbol : parsing_table.at(key)) {
                         production += symbol + " ";
                     }
                     cout << setw(col_width[terminal]) << left << production << " |";
@@ -421,4 +411,29 @@ public:
         cout << string(total_width, '=') << "\n";
     }
     
+    private:
+    bool isTerminal(const string& symbol) const {
+        return !(productions.count(symbol));
+    }
+
+    set<string> getProductionFirstSet(const vector<string>& production) {
+        set<string> result;
+
+        for (const string& symbol : production) {
+            // agar terminal tou usko add
+            if (isTerminal(symbol)) {
+                result.insert(symbol);
+                break;
+            } 
+            else {
+                // agar non-terminal tou uske first ko add
+                result.insert(firstSets[symbol].begin(), firstSets[symbol].end());
+
+                if (firstSets[symbol].count("ε") == 0)
+                    break;
+            }
+        }
+
+        return result;
+    }
 };
