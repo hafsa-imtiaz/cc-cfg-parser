@@ -2,13 +2,17 @@
 #include <fstream>
 #include <sstream>
 #include <map>
+#include <set>
 #include <vector>
+#include <iomanip>
 using namespace std;
 
 class CFG {
 private:
     map<string, vector<vector<string>>> productions;  // grammar rules
-
+    map<string, set<string>> firstSets;  // FIRST sets
+    map<string, set<string>> followSets; // FOLLOW sets
+    map<pair<string, string>, vector<string>> parsingTable; // LL(1) Parsing Table
 public:
     CFG(const string& filename) {
         read_from_file(filename);
@@ -136,4 +140,137 @@ public:
 
         productions = updatedCFG;
     }
+
+    void computeFirstSets() {
+        bool changed = true;
+
+        while (changed) {
+            changed = false;
+
+            for (const auto& rule : productions) {
+                string nonTerminal = rule.first;
+
+                for (const auto& production : rule.second) {
+                    string firstSymbol = production[0];
+
+                    if (isTerminal(firstSymbol)) {
+                        if (firstSets[nonTerminal].insert(firstSymbol).second)
+                            changed = true;
+                    } else {
+                        for (const string& symbol : production) {
+                            if (!isTerminal(symbol)) {
+                                size_t oldSize = firstSets[nonTerminal].size();
+                                firstSets[nonTerminal].insert(firstSets[symbol].begin(), firstSets[symbol].end());
+
+                                if (firstSets[symbol].count("ε") == 0)
+                                    break;
+
+                                if (firstSets[nonTerminal].size() > oldSize)
+                                    changed = true;
+                            } else {
+                                if (firstSets[nonTerminal].insert(symbol).second)
+                                    changed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void computeFollowSets() {
+        followSets[begin(productions)->first].insert("$"); // Start symbol gets '$'
+
+        bool changed = true;
+        while (changed) {
+            changed = false;
+
+            for (const auto& rule : productions) {
+                string nonTerminal = rule.first;
+
+                for (const auto& production : rule.second) {
+                    for (size_t i = 0; i < production.size(); i++) {
+                        string symbol = production[i];
+
+                        if (!isTerminal(symbol)) {
+                            set<string> followToAdd;
+
+                            if (i + 1 < production.size()) {
+                                string nextSymbol = production[i + 1];
+
+                                if (isTerminal(nextSymbol)) {
+                                    followToAdd.insert(nextSymbol);
+                                } else {
+                                    followToAdd.insert(firstSets[nextSymbol].begin(), firstSets[nextSymbol].end());
+                                    followToAdd.erase("ε");
+
+                                    if (firstSets[nextSymbol].count("ε")) {
+                                        followToAdd.insert(followSets[nonTerminal].begin(), followSets[nonTerminal].end());
+                                    }
+                                }
+                            } else {
+                                followToAdd.insert(followSets[nonTerminal].begin(), followSets[nonTerminal].end());
+                            }
+
+                            size_t oldSize = followSets[symbol].size();
+                            followSets[symbol].insert(followToAdd.begin(), followToAdd.end());
+
+                            if (followSets[symbol].size() > oldSize)
+                                changed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+   
+    void printFirstSets() const {
+        cout << "\nFIRST Sets:\n";
+        for (const auto& entry : firstSets) {
+            cout << "FIRST(" << entry.first << ") = { ";
+            for (const auto& symbol : entry.second) {
+                cout << symbol << " ";
+            }
+            cout << "}\n";
+        }
+    }
+
+    void printFollowSets() const {
+        cout << "\nFOLLOW Sets:\n";
+        for (const auto& entry : followSets) {
+            cout << "FOLLOW(" << entry.first << ") = { ";
+            for (const auto& symbol : entry.second) {
+                cout << symbol << " ";
+            }
+            cout << "}\n";
+        }
+    }
+
+ 
+
+    private:
+    bool isTerminal(const string& symbol) const {
+        return !(productions.count(symbol));
+    }
+
+    set<string> computeFirstForProduction(const vector<string>& production) {
+        set<string> result;
+
+        for (const string& symbol : production) {
+            if (isTerminal(symbol)) {
+                result.insert(symbol);
+                break;
+            } else {
+                result.insert(firstSets[symbol].begin(), firstSets[symbol].end());
+
+                if (firstSets[symbol].count("ε") == 0)
+                    break;
+            }
+        }
+
+        return result;
+    }
 };
+

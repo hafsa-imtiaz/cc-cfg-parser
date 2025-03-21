@@ -1,22 +1,29 @@
 #include <iostream>
-#include <map>
-#include <vector>
 #include "CFG.h"
+
 using namespace std;
 
 int main() {
-    CFG cfg("..\\input.txt");  
+    CFG cfg("..\\input.txt");
+
     cout << "\nOriginal CFG:\n";
     cfg.print();
 
-    cout << "\nCFG Applying Left Factoring:\n";
+    cout << "\nApplying Left Factoring...\n";
     cfg.LeftFactoring();
     cfg.print();
 
-    cout << "\nCFG Removing Left Recursion:\n";
+    cout << "\nRemoving Left Recursion...\n";
     cfg.LeftRecursion();
     cfg.print();
 
+    cout << "\nComputing FIRST Sets...\n";
+    cfg.computeFirstSets();
+    cfg.printFirstSets();
+
+    cout << "\nComputing FOLLOW Sets...\n";
+    cfg.computeFollowSets();
+    cfg.printFollowSets();
+
     return 0;
 }
-
