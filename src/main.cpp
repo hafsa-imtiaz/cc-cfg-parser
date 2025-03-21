@@ -24,6 +24,10 @@ int main() {
     cout << "\nComputing FOLLOW Sets...\n";
     cfg.computeFollowSets();
     cfg.printFollowSets();
+    
+    cout << "\nConstructing LL(1) Parsing Table...\n";
+    cfg.constructParsingTable();
+    cfg.printParsingTable();
 
     return 0;
 }

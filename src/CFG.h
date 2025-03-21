@@ -225,7 +225,28 @@ public:
         }
     }
 
-   
+    void constructParsingTable() {
+        for (const auto& rule : productions) {
+            string nonTerminal = rule.first;
+
+            for (const auto& production : rule.second) {
+                set<string> firstSetForProduction = computeFirstForProduction(production);
+
+                for (const string& terminal : firstSetForProduction) {
+                    if (terminal != "ε") {
+                        parsingTable[{nonTerminal, terminal}] = production;
+                    }
+                }
+
+                if (firstSetForProduction.count("ε")) {
+                    for (const string& terminal : followSets[nonTerminal]) {
+                        parsingTable[{nonTerminal, terminal}] = production;
+                    }
+                }
+            }
+        }
+    }
+
     void printFirstSets() const {
         cout << "\nFIRST Sets:\n";
         for (const auto& entry : firstSets) {
@@ -248,6 +269,59 @@ public:
         }
     }
 
+    /*
+    void printParsingTable() const {
+        cout << "\nLL(1) Parsing Table:\n";
+        for (const auto& entry : parsingTable) {
+            cout << "M[" << entry.first.first << ", " << entry.first.second << "] = ";
+            for (const string& symbol : entry.second) {
+                cout << symbol << " ";
+            }
+            cout << "\n";
+        }
+    }*/
+
+    void printParsingTable() const {
+        cout << "\n=========================== LL(1) Parsing Table ==================================\n";
+    
+        // Extract unique terminals for table columns
+        set<string> terminals;
+        for (const auto& entry : parsingTable) {
+            terminals.insert(entry.first.second);
+        }
+    
+        // Print table header
+        cout << setw(10) << left << "NT \\ T";  // Header for non-terminals
+        for (const string& terminal : terminals) {
+            cout << setw(10) << left << terminal;
+        }
+        cout << "\n----------------------------------------------------------------------------------\n";
+    
+        // Print each row for non-terminals
+        set<string> nonTerminals;
+        for (const auto& entry : parsingTable) {
+            nonTerminals.insert(entry.first.first);
+        }
+    
+        for (const string& nonTerminal : nonTerminals) {
+            cout << setw(10) << left << nonTerminal;  // Print non-terminal
+    
+            for (const string& terminal : terminals) {
+                auto key = make_pair(nonTerminal, terminal);
+                if (parsingTable.find(key) != parsingTable.end()) {
+                    cout << setw(10) << left;
+                    for (const string& symbol : parsingTable.at(key)) {
+                        cout << symbol << " ";
+                    }
+                } else {
+                    cout << setw(10) << left << "-";  // Empty cell
+                }
+            }
+            cout << "\n";
+        }
+    
+        cout << "==================================================================================\n";
+    }
  
 
     private:
